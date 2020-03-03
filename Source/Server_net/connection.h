@@ -138,7 +138,7 @@ namespace server
 			}
 
 			template<typename socket_type, typename buffer_type>
-			auto async_recv_helper(socket_type& socket, buffer_type&& buffer) -> std::future<void>
+			auto async_recv_helper(socket_type& socket, buffer_type buffer) -> std::future<void>
 			{
 				try
 				{
@@ -148,17 +148,19 @@ namespace server
 
 					}
 				}
-				catch (const std::exception & exception)
+				catch (const std::exception & /*exception*/)
 				{
-					printf("exception: %s", exception.what());
+					printf("connection %d closed.", id);
+					//printf("exception: %s", exception.what());
 				}
 			}
 
 			auto async_recv()
 			{
 				auto buffer = asio::buffer(rdata, 5);
-				async_recv_helper(socket, std::move(buffer));
+				async_recv_helper(socket, asio::buffer(rdata, 5));
 			}
+#if 0
 			//*/
 			asio::awaitable<void> async_read()
 			{
@@ -184,6 +186,7 @@ namespace server
 					printf("exception: %s", e.what());
 				}
 			}
+#endif
 		};
 
 		static_assert(std::is_nothrow_move_constructible<tcp_connection>::value);

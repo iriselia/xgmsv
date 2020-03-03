@@ -14,7 +14,8 @@ namespace server
 		std::vector<tcp_connection> connection_pool2;
 		connection_pool connection_pool3;
 
-		std::vector<async_network_service> network_services;
+		std::list<async_network_service> network_services;
+		bool network_services_running;
 
 
 
@@ -66,6 +67,7 @@ namespace server
 					[i]()
 					{
 						io_context.run();
+						printf("%s exited.\n", worker_threads[i].name.c_str());
 					});
 			}
 
@@ -80,11 +82,18 @@ namespace server
 
 		void start_network(int thread_count)
 		{
+			assert(!network_services_running);
+
 			spawn_worker_threads(thread_count);
 		}
 
 		void stop_network()
 		{
+			assert(network_services_running);
+			for (auto& i : network_services)
+			{
+				i.stop_signal = true;
+			}
 			stop_worker_threads();
 		}
 

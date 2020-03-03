@@ -226,7 +226,12 @@ int main(int argc, char* argv[])
 		std::thread t([&io_context]() { io_context.run(); });
 
 		std::vector<tcp::socket> sockets;
-		sockets.resize(200);
+		sockets.reserve(200);
+
+		for (int i = 0; i < 200; i++)
+		{
+			sockets.emplace_back(io_context);
+		}
 
 		for (int i = 0; i < 100; i++)
 		{
@@ -243,7 +248,14 @@ int main(int argc, char* argv[])
 				});
 		}
 
+		io_context.run();
 
+		for (;;)
+		{
+			Sleep(1000);
+		}
+
+		/*
 		char line[chat_message::max_body_length + 1];
 		while (std::cin.getline(line, chat_message::max_body_length + 1))
 		{
@@ -258,6 +270,7 @@ int main(int argc, char* argv[])
 		}
 
 		c.close();
+		*/
 		t.join();
 	}
 	catch (std::exception & e)

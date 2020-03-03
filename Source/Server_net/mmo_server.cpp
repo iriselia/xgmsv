@@ -44,6 +44,7 @@ namespace mmo_server
 		};
 
 		core::spawn_network_service("127.0.0.1", port, 300, accept_handler);
+		core::spawn_network_service("127.0.0.1", port + 1, 300, accept_handler);
 		//core::async_accept("127.0.0.1", port, accept_handler, false);
 		core::spawn_worker_threads(2);
 

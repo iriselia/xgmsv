@@ -68,12 +68,15 @@ namespace server
 			lambda accept_handler;
 			asio::error_code error_code;
 
-			asio::ip::tcp::acceptor acceptor;
+			asio::ip::tcp::acceptor& acceptor;
+			std::vector<tcp_connection*>& connection_pool;
+
+			tcp_connection* return_value;
 			//asio::ip::tcp::socket socket;
 
-			async_accept_frame(std::string ip, unsigned short port, lambda& accept_handler) :
-				ip(ip), port(port), accept_handler(accept_handler),
-				acceptor(io_context, { asio::ip::address::from_string(ip), port }){}
+			async_accept_frame(asio::ip::tcp::acceptor& acceptor, std::vector<tcp_connection*>& connection_pool, std::string ip, unsigned short port, lambda& accept_handler) :
+				ip(ip), port(port), accept_handler(accept_handler), acceptor(acceptor), connection_pool(connection_pool)
+			{}
 
 			bool await_ready()
 			{
@@ -82,99 +85,81 @@ namespace server
 
 			void await_suspend(std::experimental::coroutine_handle<> coro)
 			{
-				acceptor.async_accept([this, coro](auto error_code, auto socket) { this->error_code = error_code;
-				connection_pool2.emplace_back(std::move(socket));
-				coro.resume();
-					});
+				acceptor.async_accept([this, coro](auto error_code, auto socket)
+				{
+					this->error_code = error_code;
+
+					auto new_connection = new tcp_connection(std::move(socket));
+
+					return_value = nullptr;
+					uint32 id = 0;
+
+					for (auto& i : this->connection_pool)
+					{
+						if (!i)
+						{
+							i = new_connection;
+							i->id = id;
+							return_value = i;
+							break;
+						}
+						id++;
+					}
+
+					coro.resume();
+				});
 			}
 
-			tcp_connection& await_resume()
+			tcp_connection* await_resume()
 			{
 				if (error_code)
 				{
 					throw asio::system_error(error_code);
 				}
 
-				return connection_pool2.back();
+				return return_value;
 			}
-
-			/*
-			auto async_accept() -> std::future<void>
-			{
-
-			}
-			*/
-
-			/*
-			asio::awaitable<void> operator()()
-			{
-				auto executor = co_await asio::this_coro::executor;
-				asio::ip::tcp::acceptor acceptor(executor, { asio::ip::address::from_string(ip), port });
-				while (true)
-				{
-					asio::ip::tcp::socket socket = co_await acceptor.async_accept(asio::use_awaitable);
-					auto executor = socket.get_executor();
-
-					connection_pool.emplace_back(std::move(socket));
-
-					try
-					{
-						//connection_pool.back().socket.async_receive(asio::buffer(connection_pool.back().rdata, 12), [this](auto error_code, auto bytes_read) { });
-
-						connection_pool.back().async_recv();
-						/*
-						asio::co_spawn(executor,
-							[]()
-							{
-								return connection_pool.back().async_read();
-							}, asio::detached);
-						//*/
-			/*
-					}
-					catch (std::exception & e)
-					{
-						printf("exception: %s", e.what());
-					}
-
-
-					accept_handler();
-				}
-			}
-			*/
-
 
 		};
 
-		/*
-		template<typename lambda>
-		auto spawn_async_acceptor(std::string ip, unsigned short port, lambda& accept_handler)
-		{
-			asio::co_spawn(io_context, async_acceptor<lambda>(ip, port, accept_handler), asio::detached);
-		}
-		*/
-
 		struct async_network_service
 		{
+			std::string ip;
+			unsigned short port;
 			std::vector<tcp_connection*> connection_pool;
+			uint32 connection_count;
 			asio::ip::tcp::acceptor acceptor;
+			volatile bool stop_signal;
 
 			template<typename lambda>
 			async_network_service(std::string ip, uint16 port, uint16 max_connection_count, lambda& accept_handler) :
-				acceptor(io_context, { asio::ip::address::from_string(ip), port }) {}
+				ip(ip), port(port), connection_count(0), acceptor(io_context, { asio::ip::address::from_string(ip), port }),
+				stop_signal(false)
 			{
-				async_accept(ip, port, accept_handler, false);
+				connection_pool.resize(max_connection_count);
+				begin_async_accept(ip, port, accept_handler, stop_signal);
 			}
 
 			template<typename lambda>
-			auto async_accept(std::string ip, unsigned short port, lambda& accept_handler, bool stop_signal) -> std::future<void>
+			auto begin_async_accept(std::string ip, unsigned short port, lambda& accept_handler, volatile bool& stop_signal) -> std::future<void>
 			{
 				try
 				{
-					while (true)
+					while (!stop_signal)
 					{
-						auto& new_connection = co_await async_accept_frame<lambda>(ip, port, accept_handler);
+						auto new_connection = co_await async_accept_frame<lambda>(acceptor, connection_pool, ip, port, accept_handler);
 
-						new_connection.async_recv();
+						connection_count++;
+
+						if (new_connection)
+						{
+							printf("new connection accepted: %d from %s:%d\n", new_connection->id, new_connection->address, port);
+							new_connection->async_recv();
+						}
+						else
+						{
+							printf("new connection rejected, connection_count: %d.\n", connection_count);
+						}
 						//co_await printf("something\n");
 					}
 				}
@@ -186,11 +171,13 @@ namespace server
 
 		};
 
-		extern std::vector<async_network_service> network_services;
+		extern std::list<async_network_service> network_services;
+		extern bool network_services_running;
 
 		template<typename lambda>
 		void spawn_network_service(std::string ip, uint16 port, uint16 max_connection_count, lambda& accept_handler)
 		{
+			assert(!network_services_running);
 			network_services.emplace_back(ip, port, max_connection_count, accept_handler);
 		}
 
