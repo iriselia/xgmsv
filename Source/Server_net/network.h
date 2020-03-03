@@ -32,8 +32,6 @@ namespace server
 
 
 		extern std::mutex connection_lock;
-		extern std::vector<tcp_connection> connection_pool2;
-		extern connection_pool connection_pool3;
 
 
 		struct main_thread_info
@@ -60,23 +58,28 @@ namespace server
 		extern std::vector<worker_thread> worker_threads;
 
 
-		template<typename lambda>
-		struct async_accept_frame
+		struct connection_pool : public std::vector<tcp_connection*>
 		{
+			uint32 conneciton_count = 0;
+		};
+
+		template<typename lambda>
+		struct async_accept_frame_impl
+		{
+			async_accept_frame_impl(asio::ip::tcp::acceptor& acceptor, connection_pool& connections, std::string ip, unsigned short port, lambda& accept_handler) :
+				ip(ip), port(port), accept_handler(accept_handler), acceptor(acceptor), connection_pool(connections), connection_count(connection_count) {}
+
 			std::string ip;
 			unsigned short port;
 			lambda accept_handler;
 			asio::error_code error_code;
 
 			asio::ip::tcp::acceptor& acceptor;
-			std::vector<tcp_connection*>& connection_pool;
+			uint32& connection_count;
 
 			tcp_connection* return_value;
 			//asio::ip::tcp::socket socket;
-
-			async_accept_frame(asio::ip::tcp::acceptor& acceptor, std::vector<tcp_connection*>& connection_pool, std::string ip, unsigned short port, lambda& accept_handler) :
-				ip(ip), port(port), accept_handler(accept_handler), acceptor(acceptor), connection_pool(connection_pool)
-			{}
+			connection_pool& connection_pool;
 
 			bool await_ready()
 			{
@@ -89,22 +92,29 @@ namespace server
 				{
 					this->error_code = error_code;
 
-					auto new_connection = new tcp_connection(std::move(socket));
 
 					return_value = nullptr;
-					uint32 id = 0;
 
-					for (auto& i : this->connection_pool)
+					for (int id = 0; id < this->connection_pool.size(); id++)
 					{
-						if (!i)
+						auto& connection = this->connection_pool[id];
+						if (!connection)
 						{
-							i = new_connection;
-							i->id = id;
-							return_value = i;
+							this->connection_pool.conneciton_count++;
+							connection = new tcp_connection(std::move(socket));
+							connection->id = id;
+							return_value = connection;
 							break;
 						}
-						id++;
 					}
+
+					if (return_value == nullptr)
+					{
+						socket.shutdown(asio::socket_base::shutdown_both);
+						socket.close();
+					}
+
+					accept_handler(return_value);
 
 					coro.resume();
 				});
@@ -122,43 +132,77 @@ namespace server
 
 		};
 
+		template<typename lambda>
+		auto async_accept_frame(asio::ip::tcp::acceptor& acceptor, connection_pool& connections, std::string ip, unsigned short port, lambda& accept_handler)
+		{
+			return async_accept_frame_impl<lambda>(acceptor, connections, ip, port, accept_handler);
+		}
+
+
 		struct async_network_service
 		{
-			std::string ip;
-			unsigned short port;
-			std::vector<tcp_connection*> connection_pool;
-			uint32 connection_count;
-			asio::ip::tcp::acceptor acceptor;
-			volatile bool stop_signal;
-
 			template<typename lambda>
 			async_network_service(std::string ip, uint16 port, uint16 max_connection_count, lambda& accept_handler) :
-				ip(ip), port(port), connection_count(0), acceptor(io_context, { asio::ip::address::from_string(ip), port }),
+				ip(ip), port(port), acceptor(io_context, { asio::ip::address::from_string(ip), port }),
 				stop_signal(false)
 			{
 				connection_pool.resize(max_connection_count);
+
+				async_every(1000ms, [this]()
+				{
+					int connections_purged = 0;
+					for (auto& connection : this->connection_pool)
+					{
+						if (connection)
+						{
+							uint32 id = connection->id;
+							if (connection->marked_for_delete)
+							{
+								delete connection;
+								connection = nullptr;
+								this->connection_pool.conneciton_count--;
+								connections_purged++;
+							}
+						}
+					}
+
+					if (connections_purged)
+					{
+						printf("%d connections purged for %s:%d.\n", connections_purged, this->ip.c_str(), this->port);
+					}
+
+				});
+
 				begin_async_accept(ip, port, accept_handler, stop_signal);
 			}
 
+			std::string ip;
+			unsigned short port;
+			connection_pool connection_pool;
+			asio::ip::tcp::acceptor acceptor;
+			volatile bool stop_signal;
+
+
+
 			template<typename lambda>
-			auto begin_async_accept(std::string ip, unsigned short port, lambda& accept_handler, volatile bool& stop_signal) -> std::future<void>
+			std::future<void> begin_async_accept(std::string ip, unsigned short port, lambda& accept_handler, volatile bool& stop_signal)
 			{
 				try
 				{
 					while (!stop_signal)
 					{
-						auto new_connection = co_await async_accept_frame<lambda>(acceptor, connection_pool, ip, port, accept_handler);
+						auto new_connection = co_await async_accept_frame(acceptor, connection_pool, ip, port, accept_handler);
 
-						connection_count++;
 
 						if (new_connection)
 						{
-							printf("new connection accepted: %d from %s:%d\n", new_connection->id, new_connection->address, port);
-							new_connection->async_recv();
+							//printf("new connection accepted: %d from %s:%d\n", new_connection->id, new_connection->address.to_string().c_str(), port);
+							new_connection->begin_async_recv();
 						}
 						else
 						{
-							printf("new connection rejected, connection_count: %d.\n", connection_count);
+
+							//printf("new connection rejected, connection_count: %d.\n", connection_pool.conneciton_count);
 						}
 						//co_await printf("something\n");
 					}
@@ -172,24 +216,19 @@ namespace server
 		};
 
 		extern std::list<async_network_service> network_services;
-		extern bool network_services_running;
+		extern bool network_services_online;
 
 		template<typename lambda>
 		void spawn_network_service(std::string ip, uint16 port, uint16 max_connection_count, lambda& accept_handler)
 		{
-			assert(!network_services_running);
+			assert(!network_services_online);
 			network_services.emplace_back(ip, port, max_connection_count, accept_handler);
 		}
 
-		void spawn_worker_threads(int thread_count);
-		void stop_worker_threads();
-
-		void start_network(int thread_count);
+		void spawn_worker_threads(uint32 worker_count = 0);
+		void purge_worker_threads();
+		void start_network(uint32 thread_count = 0);
 		void stop_network();
-
-
-
-
 
 			/*
 			asio::awaitable<void> reader()

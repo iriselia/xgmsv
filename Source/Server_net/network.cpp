@@ -11,11 +11,8 @@ namespace server
 	{
 		main_thread_info main_thread;
 		std::vector<worker_thread> worker_threads;
-		std::vector<tcp_connection> connection_pool2;
-		connection_pool connection_pool3;
-
 		std::list<async_network_service> network_services;
-		bool network_services_running;
+		bool network_services_online;
 
 
 
@@ -56,45 +53,63 @@ namespace server
 			}
 		}
 		*/
-		void spawn_worker_threads(/*asio::io_context& io_context, */int thread_count)
-		{
 
-			worker_threads.reserve(thread_count);
-			for (int i = 0; i < thread_count; i++)
+		void spawn_worker_threads(uint32 worker_count)
+		{
+			if (worker_count == 0)
+			{
+				worker_count = std::thread::hardware_concurrency();
+			}
+
+			worker_threads.reserve(worker_count);
+			for (int i = 0; i < worker_count; i++)
 			{
 				worker_threads.emplace_back(
 					std::string("worker_thread_") + std::to_string(i),
 					[i]()
+				{
+					while (!network_services_online)
 					{
-						io_context.run();
-						printf("%s exited.\n", worker_threads[i].name.c_str());
-					});
+						std::this_thread::sleep_for(10ms);
+					}
+
+					io_context.run();
+					printf("%s exited.\n", worker_threads[i].name.c_str());
+				});
 			}
-
-			auto id = worker_threads.back().get_id();
 		}
 
-		void stop_worker_threads()
+		void purge_worker_threads()
 		{
-
+			for (auto& worker : worker_threads)
+			{
+				if (worker.joinable())
+				{
+					worker.join();
+				}
+			}
+			worker_threads.clear();
 		}
 
-
-		void start_network(int thread_count)
+		void start_network(uint32 worker_count)
 		{
-			assert(!network_services_running);
+			assert(!network_services_online);
 
-			spawn_worker_threads(thread_count);
+			//spawn_worker_threads(worker_count);
+
+			network_services_online = true;
 		}
 
 		void stop_network()
 		{
-			assert(network_services_running);
+			assert(network_services_online);
 			for (auto& i : network_services)
 			{
 				i.stop_signal = true;
 			}
-			stop_worker_threads();
+
+			io_context.stop();
+			network_services_online = false;
 		}
 
 		void this_thread::assign_main_thread()

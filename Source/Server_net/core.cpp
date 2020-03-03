@@ -39,11 +39,11 @@ namespace server
 			try
 			{
 
-				while (true)
+				while (network_services_online)
 				{
 					Sleep(100);
 				}
-				io_context.run();
+				//io_context.run();
 
 			}
 			catch (std::exception & e)
@@ -51,6 +51,8 @@ namespace server
 				printf("exception: %s", e.what());
 				//std::cerr << "Exception: " << e.what() << "\n";
 			}
+
+			printf("server main_loop complete.\n");
 		}
 
 

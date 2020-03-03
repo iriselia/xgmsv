@@ -36,19 +36,25 @@ namespace mmo_server
 		core::init_signals(signal_handler);
 		//core::init_gui();
 
-		unsigned short port = 9006;
-		auto accept_handler = [&port]()
+		auto accept_handler = [](core::tcp_connection* new_connection)
 		{
-			auto newport = port + 1;
-			printf("accepted\n");
+			printf("connection %d accepted\n", new_connection->id);
 		};
 
+		unsigned short port = 9006;
 		core::spawn_network_service("127.0.0.1", port, 300, accept_handler);
 		core::spawn_network_service("127.0.0.1", port + 1, 300, accept_handler);
 		//core::async_accept("127.0.0.1", port, accept_handler, false);
 		core::spawn_worker_threads(2);
+		core::start_network(2);
 
-		core::async([]() {printf("async_task\n"); });
+		core::async_after(5s, []()
+		{
+			printf("server network stopped.\n");
+			core::stop_network();
+		});
+
+		//core::async([]() {printf("async_task\n"); });
 		/*
 		core::async_after(5s, []() {printf("async_task\n"); });
 		core::async_every(1000ms, []()
@@ -57,7 +63,7 @@ namespace mmo_server
 			});
 		*/
 
-		core::async_every(5s, stop_signal, []() {printf("stoppable periodic_async_task\n"); });
+		//core::async_every(5s, stop_signal, []() {printf("stoppable periodic_async_task\n"); });
 	}
 
 
@@ -68,6 +74,7 @@ namespace mmo_server
 
 	void stop()
 	{
+		core::purge_worker_threads();
 		//core::stop_gui();
 	}
 }
