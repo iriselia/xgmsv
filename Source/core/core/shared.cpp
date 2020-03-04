@@ -1,37 +1,26 @@
 
-
-#include <functional>
-#include <future>
-#include <chrono>
-#include <thread>
-#include <csignal>
-
 #include "imgui.h"
 #include "imgui_impl_glfw_gl3.h"
 #include "GL/gl3w.h"
 #include "glfw/glfw3.h"
 
-#include "common.h"
+#include "core/utils/index.h"
 
-#include "core.h"
-
-#include "network.h"
-
-
+#include "core/shared.h"
 
 
 namespace server
 {
-	volatile int signal_status;
 
 
 	namespace core
 	{
+		// public
 		asio::io_context io_context;
+		volatile e_server_status server_status;
 
 
-
-		// IO loop
+		// detail
 		void main_loop()
 		{
 			this_thread::assign_main_thread();
@@ -39,7 +28,7 @@ namespace server
 			try
 			{
 
-				while (network_services_online)
+				while (server_status == e_server_status::running)
 				{
 					Sleep(100);
 				}
@@ -65,10 +54,6 @@ namespace server
 
 			std::signal(SIGINT, signal_handler_wrapper);
 			std::signal(SIGTERM, signal_handler_wrapper);
-		}
-
-		void init_io_context(int thread_count)
-		{
 		}
 
 

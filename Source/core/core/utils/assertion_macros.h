@@ -1,4 +1,5 @@
 //#pragma once
+#include "core/utils/defines.h"
 
 #if ENABLED(DEBUG_PROGRAM)
 void assert_impl(char const* file, int line, char const* function, char const* message);

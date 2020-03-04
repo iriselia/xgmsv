@@ -1,10 +1,10 @@
 #include "docopt.h"
 
+#include "core/shared.h"
 
-#include "common.h"
+#include "core/network/network_service.h"
+#include "core/network/timer.h"
 
-#include "core.h"
-#include "network.h"
 
 #include "mmo_server.h"
 
@@ -29,7 +29,7 @@ namespace mmo_server
 		auto signal_handler = [&](int signal)
 		{
 			printf("exit signal: %d.\n", signal);
-			mmo_server::signal_status = signal;
+			core::server_status = core::e_server_status::stopped;
 			core::io_context.stop();
 		};
 
@@ -45,8 +45,17 @@ namespace mmo_server
 		core::spawn_network_service("127.0.0.1", port, 300, accept_handler);
 		//core::spawn_network_service("127.0.0.1", port + 1, 300, accept_handler);
 		//core::async_accept("127.0.0.1", port, accept_handler, false);
-		core::spawn_worker_threads(2);
-		core::start_network(2);
+		core::spawn_worker_threads(2, []()
+		{
+			while (core::server_status == core::e_server_status::initializing)
+			{
+				std::this_thread::sleep_for(10ms);
+			}
+
+			core::io_context.run();
+		});
+
+		core::start_network();
 
 		core::async_after(100s, []()
 		{

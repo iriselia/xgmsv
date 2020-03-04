@@ -1,8 +1,6 @@
-#include "asio/ip/tcp.hpp"
+#include "core/utils/index.h"
 
-#include "common.h"
-
-#include "core.h"
+#include "core/shared.h"
 
 #include "connection.h"
 #include "timer.h"
@@ -36,7 +34,7 @@ namespace server
 			marked_for_delete = true;
 		}
 
-		std::future<void> server::core::tcp_connection::begin_async_recv()
+		std::future<void> server::core::tcp_connection::async_recv_loop()
 		{
 			try
 			{
