@@ -41,14 +41,14 @@ namespace mmo_server
 			printf("connection %d accepted\n", new_connection->id);
 		};
 
-		unsigned short port = 9006;
+		unsigned short port = 9030;
 		core::spawn_network_service("127.0.0.1", port, 300, accept_handler);
-		core::spawn_network_service("127.0.0.1", port + 1, 300, accept_handler);
+		//core::spawn_network_service("127.0.0.1", port + 1, 300, accept_handler);
 		//core::async_accept("127.0.0.1", port, accept_handler, false);
 		core::spawn_worker_threads(2);
 		core::start_network(2);
 
-		core::async_after(5s, []()
+		core::async_after(100s, []()
 		{
 			printf("server network stopped.\n");
 			core::stop_network();

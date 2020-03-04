@@ -7,6 +7,8 @@
 #include <vector>
 #include <thread>
 #include <future>
+#include <chrono>
+using namespace std::chrono;
 
 
 // From Cod

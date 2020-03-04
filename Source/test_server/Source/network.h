@@ -13,12 +13,12 @@
 
 #include "timer.h"
 #include "connection.h"
+#include "acceptor.h"
 
 namespace server
 {
 	namespace core
 	{
-		using namespace std::chrono;
 		extern asio::io_context io_context;
 
 
@@ -29,9 +29,6 @@ namespace server
 			void set_debug_name(const std::string& name);
 			std::string get_debug_name();
 		};
-
-
-		extern std::mutex connection_lock;
 
 
 		struct main_thread_info
@@ -57,130 +54,23 @@ namespace server
 		extern main_thread_info main_thread;
 		extern std::vector<worker_thread> worker_threads;
 
-
-		struct connection_pool : public std::vector<tcp_connection*>
-		{
-			uint32 conneciton_count = 0;
-		};
-
-		template<typename lambda>
-		struct async_accept_frame_impl
-		{
-			async_accept_frame_impl(asio::ip::tcp::acceptor& acceptor, connection_pool& connections, std::string ip, unsigned short port, lambda& accept_handler) :
-				ip(ip), port(port), accept_handler(accept_handler), acceptor(acceptor), connection_pool(connections), connection_count(connection_count) {}
-
-			std::string ip;
-			unsigned short port;
-			lambda accept_handler;
-			asio::error_code error_code;
-
-			asio::ip::tcp::acceptor& acceptor;
-			uint32& connection_count;
-
-			tcp_connection* return_value;
-			//asio::ip::tcp::socket socket;
-			connection_pool& connection_pool;
-
-			bool await_ready()
-			{
-				return false;
-			}
-
-			void await_suspend(std::experimental::coroutine_handle<> coro)
-			{
-				acceptor.async_accept([this, coro](auto error_code, auto socket)
-				{
-					this->error_code = error_code;
-
-
-					return_value = nullptr;
-
-					for (int id = 0; id < this->connection_pool.size(); id++)
-					{
-						auto& connection = this->connection_pool[id];
-						if (!connection)
-						{
-							this->connection_pool.conneciton_count++;
-							connection = new tcp_connection(std::move(socket));
-							connection->id = id;
-							return_value = connection;
-							break;
-						}
-					}
-
-					if (return_value == nullptr)
-					{
-						socket.shutdown(asio::socket_base::shutdown_both);
-						socket.close();
-					}
-
-					accept_handler(return_value);
-
-					coro.resume();
-				});
-			}
-
-			tcp_connection* await_resume()
-			{
-				if (error_code)
-				{
-					throw asio::system_error(error_code);
-				}
-
-				return return_value;
-			}
-
-		};
-
-		template<typename lambda>
-		auto async_accept_frame(asio::ip::tcp::acceptor& acceptor, connection_pool& connections, std::string ip, unsigned short port, lambda& accept_handler)
-		{
-			return async_accept_frame_impl<lambda>(acceptor, connections, ip, port, accept_handler);
-		}
-
-
 		struct async_network_service
 		{
-			template<typename lambda>
-			async_network_service(std::string ip, uint16 port, uint16 max_connection_count, lambda& accept_handler) :
-				ip(ip), port(port), acceptor(io_context, { asio::ip::address::from_string(ip), port }),
-				stop_signal(false)
-			{
-				connection_pool.resize(max_connection_count);
-
-				async_every(1000ms, [this]()
-				{
-					int connections_purged = 0;
-					for (auto& connection : this->connection_pool)
-					{
-						if (connection)
-						{
-							uint32 id = connection->id;
-							if (connection->marked_for_delete)
-							{
-								delete connection;
-								connection = nullptr;
-								this->connection_pool.conneciton_count--;
-								connections_purged++;
-							}
-						}
-					}
-
-					if (connections_purged)
-					{
-						printf("%d connections purged for %s:%d.\n", connections_purged, this->ip.c_str(), this->port);
-					}
-
-				});
-
-				begin_async_accept(ip, port, accept_handler, stop_signal);
-			}
-
 			std::string ip;
 			unsigned short port;
 			connection_pool connection_pool;
 			asio::ip::tcp::acceptor acceptor;
 			volatile bool stop_signal;
+
+			template<typename lambda>
+			async_network_service(std::string ip, uint16 port, uint16 max_connection_count, lambda& accept_handler) :
+				ip(ip), port(port), connection_pool(io_context, ip, port, max_connection_count), acceptor(io_context, { asio::ip::address::from_string(ip), port }),
+				stop_signal(false)
+			{
+				begin_async_accept(ip, port, accept_handler, stop_signal);
+			}
+
+
 
 
 
@@ -191,7 +81,7 @@ namespace server
 				{
 					while (!stop_signal)
 					{
-						auto new_connection = co_await async_accept_frame(acceptor, connection_pool, ip, port, accept_handler);
+						auto new_connection = co_await async_accept(acceptor, connection_pool, ip, port, accept_handler);
 
 
 						if (new_connection)

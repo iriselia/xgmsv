@@ -62,7 +62,7 @@ namespace server
 			}
 
 			worker_threads.reserve(worker_count);
-			for (int i = 0; i < worker_count; i++)
+			for (uint32 i = 0; i < worker_count; i++)
 			{
 				worker_threads.emplace_back(
 					std::string("worker_thread_") + std::to_string(i),
