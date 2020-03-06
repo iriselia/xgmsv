@@ -50,6 +50,49 @@ namespace server
 			}
 		};
 
+		struct async_signal_frame
+		{
+			asio::steady_timer timer;
+			asio::error_code error_code;
+
+			async_signal_frame() : timer(io_context) {}
+
+			~async_signal_frame()
+			{
+				timer.cancel();
+			}
+
+			bool await_ready()
+			{
+				return false;
+			}
+
+			void await_suspend(std::experimental::coroutine_handle<> coro)
+			{
+				timer.expires_at(std::chrono::steady_clock::time_point::max());
+				timer.async_wait([this, coro](auto error_code) { this->error_code = error_code; coro.resume(); });
+			}
+
+			void await_resume()
+			{
+				switch (error_code.value())
+				{
+				case 995:
+					// signal fired by calling timer.cancel_one()
+					break;
+				default:
+					throw asio::system_error(error_code);
+				}
+			}
+
+			void fire()
+			{
+				timer.cancel_one();
+			}
+		};
+
+		typedef async_signal_frame async_signal;
+
 		template<typename duration>
 		auto async_timer(duration delay)
 		{

@@ -2,8 +2,9 @@
 
 #include "core/shared.h"
 
-#include "connection.h"
-#include "timer.h"
+#include "core/network/connection.h"
+#include "core/network/xg_session.h"
+#include "core/network/timer.h"
 
 namespace server
 {
@@ -14,10 +15,13 @@ namespace server
 			address(new_socket.remote_endpoint().address()),
 			port(new_socket.remote_endpoint().port()),
 			marked_for_delete(false),
-			socket(std::move(new_socket))
+			parent(nullptr),
+			socket(std::move(new_socket)),
+			rbuffer(1024),
+			wbuffer(1024),
+			rqueue(this),
+			wqueue(this)
 		{
-			rdata.resize(1024);
-			//rdata.reserve(12);
 		}
 
 		void tcp_connection::shutdown_and_close()
@@ -34,26 +38,7 @@ namespace server
 			marked_for_delete = true;
 		}
 
-		std::future<void> server::core::tcp_connection::async_recv_loop()
-		{
-			try
-			{
-				while (socket.is_open())
-				{
-					size_t bytes_read = co_await async_recv(*this, asio::buffer(rdata, 1024));
 
-					printf("connection %d:%s\n", id,/*this_thread::get_debug_name().c_str(),*/ &rdata[0]);
-					memset(&rdata[0], 0, bytes_read);
-
-				}
-			}
-			catch (const std::exception& /*exception*/)
-			{
-				shutdown_and_close();
-				//printf("connection %d marked for delete.\n", id);
-				//printf("exception: %s", exception.what());
-			}
-		}
 
 		connection_pool::connection_pool(asio::io_context& io_context, std::string ip, uint16 port, uint16 max_connection_count) :
 			ip(ip), port(port), io_context(io_context)
@@ -70,6 +55,11 @@ namespace server
 						uint32 id = connection->id;
 						if (connection->marked_for_delete)
 						{
+							if (connection->parent)
+							{
+								connection->parent->remove_connection(connection);
+							}
+
 							delete connection;
 							connection = nullptr;
 							this->conneciton_count--;

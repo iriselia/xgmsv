@@ -8,7 +8,6 @@
 
 #include "core/shared.h"
 
-
 namespace server
 {
 
@@ -27,12 +26,13 @@ namespace server
 
 			try
 			{
-
+				/*
 				while (server_status == e_server_status::running)
 				{
-					Sleep(100);
+					std::this_thread::sleep_for(1000ms);
 				}
-				//io_context.run();
+				*/
+				io_context.run();
 
 			}
 			catch (std::exception & e)

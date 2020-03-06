@@ -4,6 +4,14 @@ namespace server
 {
 	namespace core
 	{
+		// public
+		extern struct main_thread_info main_thread;
+		extern std::vector<struct worker_thread> worker_threads;
+
+		template<typename lambda>
+		void spawn_worker_threads(uint32 worker_count, lambda& worker_main);
+		void purge_worker_threads();
+
 		namespace this_thread
 		{
 			void assign_main_thread();
@@ -13,6 +21,7 @@ namespace server
 		};
 
 
+		// detail
 		struct main_thread_info
 		{
 			std::thread::id id;
@@ -24,17 +33,12 @@ namespace server
 			std::thread::id id;
 			std::string name;
 
-
 			template<typename lambda>
 			worker_thread(std::string&& new_name, lambda function) : id(this->get_id()), name(std::move(new_name)), std::thread(function)
 			{
 				set_thread_name(*this, name.c_str());
 			}
-
 		};
-
-		extern main_thread_info main_thread;
-		extern std::vector<worker_thread> worker_threads;
 
 		template<typename lambda>
 		void spawn_worker_threads(uint32 worker_count, lambda& worker_main)
@@ -55,8 +59,6 @@ namespace server
 				});
 			}
 		}
-
-		void purge_worker_threads();
 	}
 }
 

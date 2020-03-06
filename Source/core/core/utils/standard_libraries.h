@@ -7,7 +7,9 @@
 #include <vector>
 #include <thread>
 #include <future>
-#include <chrono>
 #include <string>
 #include <functional>
+#include <chrono>
+#include <memory>
+
 using namespace std::chrono;

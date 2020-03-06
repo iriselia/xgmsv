@@ -12,6 +12,7 @@ namespace server
 {
 	namespace core
 	{
+		// public
 		main_thread_info main_thread;
 		std::vector<worker_thread> worker_threads;
 
