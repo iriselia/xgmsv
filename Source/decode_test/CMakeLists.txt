@@ -1,0 +1,10 @@
+SET( DEFINE
+_CRT_SECURE_NO_WARNINGS
+)
+SET( INCLUDE
+)
+SET( LINK
+)
+create_project(CONSOLE DEFINE INCLUDE LINK)
+add_definitions("/utf-8")
+#SET(CMAKE_C_FLAGS  "${CMAKE_C_FLAGS} /utf-8")
