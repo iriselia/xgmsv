@@ -93,7 +93,12 @@ namespace mmo_server
 		});
 
 		//char packet4[] = "MLVlll6KdKyJmGKKII5pnmuNyMUp31qWQ7QqzcfGII5pnmuNN8X5wcMqzCuyJMAX2";
-		//crossgate::decrypt_message(packet4);
+		char packet[] = "CmMMlxipiG42g1E";
+		//crossgate::decrypt_message(packet, sizeof(packet));
+
+		char packet2[] = "Echo nr ";
+
+		crossgate::encrypt_message(packet2, sizeof(packet2));
 
 		core::async_every(1000ms, []()
 		{

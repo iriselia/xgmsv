@@ -99,7 +99,7 @@ namespace server
 			return stage_3;
 		}
 
-		void decrypt_message(char*& data, uint32& size)
+		void decrypt_message(char* data, uint32 size)
 		{
 			// 6 bit to 8 bit string
 			size = util_64to256(data, data, mapping_table);
@@ -131,9 +131,89 @@ namespace server
 
 		}
 
-		void encrypt_message(char*& data, uint32& size)
+		uint8 apply_conditional_bit_reverse(char* dst, const char* src, size_t length)
 		{
+			char sum = 0;
 
+			// conditional bit reverse, seed = 4595
+			for (int i = 0; i < length; i++)
+			{
+				sum += src[i];
+				if (SEED % 7 == i % 5 || SEED % 2 == i % 2)
+				{
+					dst[i] = ~src[i];
+				}
+				uint64 result = length;
+			}
+
+			return sum;
+		}
+
+		int apply_salt(char* dst, const char* src, size_t length, uint8 sum)
+		{
+			// conditional salt
+			int seed = SEED % length; //38 when message_size = 49
+			for (int i = 0; i < (length + 1); i++)
+			{
+				if (i < seed)
+				{
+					dst[i] = src[i] + sum * (i * i % 3);
+				}
+
+				if (i == seed)
+				{
+					dst[i] = sum;
+				}
+
+				if (i > seed)
+				{
+					dst[i] = src[i - 1] + sum * (i * i % 7);
+				}
+
+				//uint64 result = out_int;
+			}
+
+			return 0;
+		}
+
+		int util_256to64(char *dst, char *src, size_t length)
+		{
+			unsigned int dw, dwcounter, i;
+
+			if (!dst || !src || !mapping_table) return 0;
+			dw = 0;
+			dwcounter = 0;
+			for (i = 0; i < length; i++) {
+				dw = (((unsigned int)src[i] & 0xff) << ((i % 3) * 2)) | dw;
+				dst[dwcounter++] = mapping_table[dw & 0x3f];
+				dw = (dw >> 6);
+				if (i % 3 == 2) {
+					dst[dwcounter++] = mapping_table[dw & 0x3f];
+					dw = 0;
+				}
+			}
+			if (dw) dst[dwcounter++] = mapping_table[dw];
+			dst[dwcounter] = '\0';
+			return dwcounter;
+		}
+
+
+		void encrypt_message(char* data, uint32 size)
+		{
+			memmove(data + 1, data, size);
+			size++;
+
+			data[0] = 0;
+
+
+			uint8 sum = apply_conditional_bit_reverse(data, data, size);
+			apply_salt(data, data, size, sum);
+
+			data[0] = size + 1;
+
+
+			char result[256];
+			util_256to64(result, data, size);
 		}
 	}
 }
