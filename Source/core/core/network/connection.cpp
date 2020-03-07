@@ -17,8 +17,8 @@ namespace server
 			marked_for_delete(false),
 			parent(nullptr),
 			socket(std::move(new_socket)),
-			rbuffer(1024),
-			wbuffer(1024),
+			rbuffer(4096),
+			wbuffer(4096),
 			rqueue(this),
 			wqueue(this)
 		{
@@ -55,6 +55,8 @@ namespace server
 						uint32 id = connection->id;
 						if (connection->marked_for_delete)
 						{
+
+							/*
 							if (connection->parent)
 							{
 								connection->parent->remove_connection(connection);
@@ -64,6 +66,7 @@ namespace server
 							connection = nullptr;
 							this->conneciton_count--;
 							connections_purged++;
+							*/
 						}
 					}
 				}

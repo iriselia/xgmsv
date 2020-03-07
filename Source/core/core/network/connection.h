@@ -32,7 +32,7 @@ namespace server
 
 				frame_data() : wpos(0), rpos(0), wsize(0), packet_count(0)
 				{
-					data.resize(1024);
+					data.resize(4096);
 					packets.resize(128);
 				}
 			};
@@ -199,7 +199,8 @@ namespace server
 				{
 					memcpy(wptr, source, size);
 					rpos = wpos;
-					wpos += size;
+					rend += size;
+					wpos = rend;
 					return wptr;
 				}
 
