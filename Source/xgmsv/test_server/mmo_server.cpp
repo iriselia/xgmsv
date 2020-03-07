@@ -51,15 +51,15 @@ namespace mmo_server
 			}
 		};
 
-		auto receive_handler = [](uint8*& data, uint32& bytes_read)
+		auto receive_handler = [](core::byte_buffer& payload)
 		{
-			crossgate::decrypt_message((char*&)data, bytes_read);
+			crossgate::decrypt_message(payload);
 
 		};
 
-		auto send_handler = [](uint8*& data, uint32& bytes_to_send)
+		auto send_handler = [](core::byte_buffer& payload)
 		{
-			crossgate::decrypt_message((char*&)data, bytes_to_send);
+			crossgate::encrypt_message(payload);
 
 		};
 
@@ -97,8 +97,9 @@ namespace mmo_server
 		//crossgate::decrypt_message(packet, sizeof(packet));
 
 		char packet2[] = "Echo nr ";
+		//char packet3[] = "FC ";
 
-		crossgate::encrypt_message(packet2, sizeof(packet2));
+		//crossgate::encrypt_message(packet3, sizeof(packet2) - 1);
 
 		core::async_every(1000ms, []()
 		{

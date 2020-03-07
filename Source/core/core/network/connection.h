@@ -13,7 +13,7 @@ namespace server
 		{
 			struct tcp_connection* connection;
 			uint8* data;
-			uint32 length;
+			uint64 length;
 		};
 
 		static const uint32 max_frame_count = 2;
@@ -23,12 +23,12 @@ namespace server
 			struct frame_data
 			{
 				std::vector<uint8> data;
-				uint32 wpos;
-				uint32 wsize;
+				uint64 wpos;
+				uint64 wsize;
 
 				std::vector<packet> packets;
-				uint32 rpos;
-				uint32 packet_count;
+				uint64 rpos;
+				uint64 packet_count;
 
 				frame_data() : wpos(0), rpos(0), wsize(0), packet_count(0)
 				{
@@ -58,7 +58,7 @@ namespace server
 				connection(connection), state(0), read_state(0), write_state(0), frame{}
 			{}
 
-			bool enqueue(uint8* packet_data, uint32 packet_size)
+			bool enqueue(uint8* packet_data, uint64 packet_size)
 			{
 				this->begin_write();
 
@@ -66,8 +66,8 @@ namespace server
 
 				uint32 write_idx = write_state & (0x1 << packet_queue_state_bit::active_frame);
 				frame_data& f = frame[write_idx];
-				uint32 buffer_space = f.data.size() - f.wpos;
-				uint32 packet_slots = f.packets.size() - f.packet_count;
+				uint64 buffer_space = f.data.size() - f.wpos;
+				uint64 packet_slots = f.packets.size() - f.packet_count;
 
 				if (buffer_space >= packet_size && packet_slots >= 1)
 				{
@@ -163,21 +163,25 @@ namespace server
 		struct byte_buffer
 		{
 			std::vector<uint8> buffer;
-			uint32 capacity;
-			uint32 wpos;
+			uint64 capacity;
+			uint64 rpos;
+			uint64 rend;
+			uint64 wpos;
 
-			byte_buffer(uint32 capacity) :
+			byte_buffer(uint64 capacity) :
 				buffer(capacity),
 				capacity(capacity),
+				rpos(0),
+				rend(0),
 				wpos(0)
 			{}
 
-			uint32 size()
+			uint64 size()
 			{
 				return wpos;
 			}
 
-			uint32 space()
+			uint64 free_space()
 			{
 				return capacity - wpos;
 			}
@@ -187,13 +191,14 @@ namespace server
 				return buffer.data();
 			}
 
-			uint8* write(void* source, uint32 size)
+			uint8* write(void* source, uint64 size)
 			{
 				uint8* wptr = buffer.data() + wpos;
 
-				if (this->space() > size)
+				if (this->free_space() > size)
 				{
 					memcpy(wptr, source, size);
+					rpos = wpos;
 					wpos += size;
 					return wptr;
 				}
@@ -201,7 +206,7 @@ namespace server
 				return nullptr;
 			}
 
-			void erase(uint32 num_erase)
+			void erase(uint64 num_erase)
 			{
 				if (wpos >= num_erase)
 				{
@@ -299,14 +304,17 @@ namespace server
 						{
 							core::packet* packet = packets.dequeue();
 
-							if (wbuffer.space() < packet->length * 2)
+							if (wbuffer.free_space() < packet->length * 2)
 							{
 								assert(false);
 							}
-							uint8* data = wbuffer.write(packet->data, packet->length);
+							uint8* packet_data = wbuffer.write(packet->data, packet->length);
+
+							wbuffer.rpos = packet_data - wbuffer.data();
+							wbuffer.rend = wbuffer.rpos + packet->length;
 
 							//crossgate::xg_dispatch_packet(std::move(*packet));
-							send_handler(data, packet->length);
+							send_handler(wbuffer);
 
 							//std::string packet_str((char*)packet->data, packet->length);
 
@@ -356,11 +364,11 @@ namespace server
 
 			void await_suspend(std::experimental::coroutine_handle<> coro)
 			{
-				connection.socket.async_send(buffer, [this, coro](auto error_code, size_t bytes_read)
+				connection.socket.async_send(buffer, [this, coro](auto error_code, size_t bytes_sent)
 				{
 					this->error_code = error_code;
-					printf("%zd bytes read from connection %d\n", bytes_read, connection.id);
-					return_value = (uint32)bytes_read;
+					printf("%zd bytes sent to connection %d\n", bytes_sent, connection.id);
+					return_value = (uint32)bytes_sent;
 					coro.resume();
 				});
 			}
@@ -397,19 +405,23 @@ namespace server
 
 							end = index;
 
-							uint8* data = rdata + begin;
-							uint32 size = end - begin;
+							uint8* packet_data = rdata + begin;
+							uint32 packet_size = end - begin;
+							rbuffer.rpos = begin;
+							rbuffer.rend = end;
 
-							if (strlen((char*)data) != size)
+							if (*(rdata + begin) == '\0')
 							{
 								printf("empty string\n");
 								continue;
 							}
 							else
 							{
-								receive_handler(data, size);
+								// receive assumes decrypted packet is <= encrypted packet.
 
-								if (!rqueue.enqueue(data, size))
+								receive_handler(rbuffer);
+
+								if (!rqueue.enqueue(rbuffer.data() + rbuffer.rpos, rbuffer.rend - rbuffer.rpos))
 								{
 									printf("enqueue failed.\n");
 								}

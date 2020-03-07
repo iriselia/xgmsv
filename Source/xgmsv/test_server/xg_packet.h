@@ -12,13 +12,13 @@ namespace server
 
 		};
 
+#define send_raw(str) enqueue_response((uint8*)str, sizeof(str) - 1)
+
 		void handle_echo(xg_packet* packet)
 		{
 			auto connection = packet->connection;
 
-			char echo_response[] = "Echo nr ";
-
-			if (!connection->enqueue_response((uint8*)echo_response, sizeof(echo_response)))
+			if (!connection->send_raw("Echo nr "))
 			{
 				printf("handle_echo failed.\n");
 			}
@@ -29,7 +29,6 @@ namespace server
 		void handle_fc(xg_packet* packet)
 		{
 			printf("handle_fc!\n");
-
 		}
 
 		void handle_client_login(xg_packet* packet)
