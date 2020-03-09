@@ -114,7 +114,7 @@ namespace mmo_server
 		exit(0);
 		//*/
 
-		//*
+		/*
 		char packet[] = R"(IP 127.0.0.1 )";
 		core::byte_buffer buf(4096);
 		buf.write(packet, sizeof(packet));

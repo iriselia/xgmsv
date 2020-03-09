@@ -13,8 +13,14 @@ namespace server
 			add_opcode_entry(XG_ECHO,					"Echo",					&xg_session::handle_echo),
 			add_opcode_entry(XG_CLIENT_LOGIN,			"ClientLogin",			&xg_session::handle_client_login),
 			add_opcode_entry(XG_CHAR_LIST,				"CharList",				&xg_session::handle_char_list),
+			add_opcode_entry(XG_CHAR_CREATE,			"CreateNewChar",		&xg_session::handle_char_create),
+			add_opcode_entry(XG_CHAR_DELETE,			"CharDelete",			&xg_session::handle_char_delete),
 			add_opcode_entry(XG_CHAR_LOGIN,				"CharLogin",			&xg_session::handle_char_login),
 			add_opcode_entry(XG_CHAR_LOGOUT,			"CharLogout",			&xg_session::handle_char_logout),
+
+			add_opcode_entry(XG_CHAR_WALK,				"W",					&xg_session::handle_char_walk),
+			add_opcode_entry(XG_CHAR_INTERACT,			"PI",					&xg_session::handle_char_interact),
+
 		};
 
 		void xg_dispatch_packet(xg_session* session, core::packet&& packet)

@@ -148,6 +148,19 @@ namespace server
 			printf("handle_char_list!\n");
 		}
 
+		void xg_session::handle_char_create(xg_packet* packet)
+		{
+			//"CreateNewChar 1 稀有芝士 rDW 10ZE 0 0 0 f f 0 0 5 5 "
+			//"CreateNewChar successful 3"
+		}
+
+		void xg_session::handle_char_delete(xg_packet* packet)
+		{
+			//"CharDelete 2 " left
+			//"CharDelete 3 " right
+			//"CharDelete successful 3" ? not sure
+		}
+
 		void xg_session::handle_char_login(xg_packet* packet)
 		{
 			send_raw(R"(EJQ35XO0sXyvF5j6Y2HPBZM)");
@@ -189,8 +202,8 @@ namespace server
 			
 			//send_msg(R"(ABG ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| )");
 			
-			send_raw(R"(PBt-ztsrSCXizpHiNuKPg5AuyS6PzdstfC7blf3rb-Dbo7tf5NhhQ-+Pg4--7kE6qjGnMfl6th1N20udvQ)");
-			//send_msg(R"(C 1|3H9|12|6|0|106002|1|0|jason|\\z\\z|0|0|0|见习传教士|0 )");
+			//send_raw(R"(PBt-ztsrSCXizpHiNuKPg5AuyS6PzdstfC7blf3rb-Dbo7tf5NhhQ-+Pg4--7kE6qjGnMfl6th1N20udvQ)");
+			send_msg(R"(C 1|3H9|12|6|0|106003|1|0|jason|\\z\\z|0|0|0|见习传教士|0 )");
 			
 			send_msg(R"(C 2|1tq|10|5|4|14088|1|0|伯舒医师|\\z\\z|0|0|0||0	37|1ty|10|17|4|14088|1|0|姆涅医师|\\z\\z|0|0|0||0	2|1ti|12|5|4|14090|1|0|实习药剂师吉可|\\z\\z|0|0|0||0	29|1xH|16|9|6|14151|1|0|实习生蜜雅|\\z\\z|0|0|0||0 )");
 			
@@ -203,10 +216,6 @@ namespace server
 			send_msg(R"(TK -1 P|欢迎来到芝士的魔力宝贝服务器~ 4 0 )");
 			send_msg(R"(CA 3H9|12|6|0|0 )");
 
-			core::async_after(1s,
-				[this]()
-			{
-			});
 			/*
 			send_raw(R"(TK -1 P|感谢购买大灰狼魔力。wow335.taobao.com 4 0 )");
 			send_raw(R"(TK -1 P|[版本申明]GMSV\SAvaritia\SFeb\S\S1\S2014\S共享版 4 0 )");
@@ -228,6 +237,16 @@ namespace server
 			//signal.fire(core::signal_code::shutdown);
 
 			//marked_for_delete = true;
+		}
+
+		void xg_session::handle_char_walk(xg_packet* packet)
+		{
+
+		}
+
+		void xg_session::handle_char_interact(xg_packet* packet)
+		{
+
 		}
 
 	}

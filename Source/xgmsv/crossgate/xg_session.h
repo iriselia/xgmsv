@@ -74,16 +74,17 @@ namespace server
 #define send_raw(str) enqueue_response((uint8*)str "\n", sizeof(str), true)
 
 			void handle_echo(xg_packet* packet);
-
 			void handle_fc(xg_packet* packet);
-
 			void handle_client_login(xg_packet* packet);
-
 			void handle_char_list(xg_packet* packet);
-
+			void handle_char_create(xg_packet* packet);
+			void handle_char_delete(xg_packet* packet);
 			void handle_char_login(xg_packet* packet);
-
 			void handle_char_logout(xg_packet* packet);
+
+			void handle_char_walk(xg_packet* packet);
+			void handle_char_interact(xg_packet* packet);
+
 		};
 
 		struct xg_session_pool : std::vector<xg_session*>
