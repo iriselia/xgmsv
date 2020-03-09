@@ -56,9 +56,9 @@ namespace server
 				signal.fire(core::signal_code::shutdown);
 			}
 
-			bool enqueue_response(uint8* packet_data, uint32 packet_size)
+			bool enqueue_response(uint8* packet_data, uint32 packet_size, bool raw = false)
 			{
-				if (!wqueue.enqueue(packet_data, packet_size))
+				if (!wqueue.enqueue(packet_data, packet_size, raw))
 				{
 					assert(false);
 					printf("enqueue failed.\n");
@@ -70,7 +70,8 @@ namespace server
 				return true;
 			}
 
-#define send_raw(str) enqueue_response((uint8*)str, sizeof(str) - 1)
+#define send_msg(str) enqueue_response((uint8*)str, sizeof(str))
+#define send_raw(str) enqueue_response((uint8*)str "\n", sizeof(str), true)
 
 			void handle_echo(xg_packet* packet);
 

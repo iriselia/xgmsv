@@ -91,11 +91,23 @@ namespace server
 							}
 							uint8* packet_data = wbuffer.write(packet->data, packet->length);
 
+							if (packet_data[0] == 'E')
+							{
+								printf("ready\n");
+							}
+
 							//wbuffer.rpos = packet_data - wbuffer.data();
 							//wbuffer.rend = wbuffer.rpos + packet->length;
 
 							//crossgate::xg_dispatch_packet(std::move(*packet));
-							send_handler(wbuffer);
+							if (!packet->raw)
+							{
+								send_handler(wbuffer);
+							}
+							else
+							{
+								printf("send_raw:%s\n", packet_data);
+							}
 
 							//std::string packet_str((char*)packet->data, packet->length);
 

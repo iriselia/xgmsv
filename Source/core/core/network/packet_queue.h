@@ -8,6 +8,7 @@ namespace server
 		{
 			uint8* data;
 			uint64 length;
+			bool raw;
 		};
 
 
@@ -50,7 +51,7 @@ namespace server
 			packet_queue() : state(0), read_state(0), write_state(0), frame{}
 			{}
 
-			bool enqueue(uint8* packet_data, uint64 packet_size)
+			bool enqueue(uint8* packet_data, uint64 packet_size, bool raw = false)
 			{
 				this->begin_write();
 
@@ -64,7 +65,7 @@ namespace server
 				if (buffer_space >= packet_size && packet_slots >= 1)
 				{
 					memcpy(&f.data[f.wpos], packet_data, packet_size);
-					f.packets[f.packet_count] = { &f.data[f.wpos], packet_size };
+					f.packets[f.packet_count] = { &f.data[f.wpos], packet_size, raw };
 					f.wpos += packet_size;
 					f.packet_count++;
 					result = true;

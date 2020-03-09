@@ -328,18 +328,22 @@ namespace server
 			decrypted_size--; // -1 for checksum
 
 			decrypted_size = remove_salt(buffer, buffer, decrypted_size);
-			remove_conditional_bit_reverse(buffer, buffer, decrypted_size);
 
 			uint8 workbuf[4096];
+			remove_conditional_bit_reverse(workbuf, buffer, decrypted_size);
+
 			if (buffer[0] % 2)
 			{
-				decrypted_size = decompress_message(workbuf, sizeof(workbuf), buffer + 1, decrypted_size);
-				memcpy(buffer, workbuf, decrypted_size);
+				decrypted_size = decompress_message(buffer, payload_size + payload.free_space(), workbuf + 1, decrypted_size);
+			}
+			else
+			{
+				memcpy(buffer, workbuf + 1, decrypted_size);
 			}
 
 			buffer[decrypted_size] = '\0';
 
-			payload.rpos++;
+			//payload.rpos++;
 			payload.rend += decrypted_size - payload_size;
 			return true;
 		}
@@ -572,7 +576,8 @@ namespace server
 					reg = (reg << 6);
 				}
 			}
-			if (reg) dst[byte_counter++] = table[(reg & 0b1111110000000000) >> (8 + 2)];
+			/*if (reg) */
+			dst[byte_counter++] = table[(reg & 0b1111110000000000) >> (8 + 2)]; // remainder
 			dst[byte_counter] = '\0';
 			return byte_counter;
 		}
@@ -581,15 +586,15 @@ namespace server
 		bool encrypt_message(core::byte_buffer& payload)
 		{
 			uint8* buffer = payload.data() + payload.rpos;
-			const uint64 payload_size = payload.rend - payload.rpos;
+			const uint64 payload_size_with_0 = payload.rend - payload.rpos;
 
-			if (payload.free_space() < payload_size)
+			if (payload.free_space() < payload_size_with_0)
 			{
 				printf("encrypt_message: not enough space\n");
 				return false;
 			}
 
-			uint64 encrypted_size = payload_size + 1; // packet_length padding
+			uint64 encrypted_size = payload_size_with_0;
 
 			char header = (char)encrypted_size;
 
@@ -601,7 +606,7 @@ namespace server
 				}
 
 				uint8 workbuf[4096];
-				encrypted_size = compress_message(workbuf, sizeof(workbuf), buffer, payload_size);
+				encrypted_size = compress_message(workbuf, sizeof(workbuf), buffer, payload_size_with_0 - 1); // compress without terminator
 
 				/*
 char char9_str[] = {
@@ -632,19 +637,19 @@ char char9_str[] = {
 			}
 
 			buffer[0] = header;
+			encrypted_size++; // header
 
-			encrypted_size++; // null terminator;
 
 			uint8 workbuf[4096];
 			memset(workbuf, 0, 4096);
-			uint8 checksum = apply_conditional_bit_reverse(buffer, buffer, encrypted_size);
-			encrypted_size = apply_salt_and_add_checksum(workbuf, buffer, encrypted_size, checksum);
+			uint8 checksum = apply_conditional_bit_reverse(buffer, buffer, encrypted_size); // with terminator
+			encrypted_size = apply_salt_and_add_checksum(workbuf, buffer, encrypted_size, checksum); // terminator possibly consumed
 
 			encrypted_size = util_256to64(buffer, workbuf, mapping_table, encrypted_size);
 			buffer[encrypted_size] = '\n';
 			//buffer[encrypted_size]   = '\0';
 
-			payload.rend += encrypted_size - payload_size;
+			payload.rend += encrypted_size - payload_size_with_0;
 			payload.wpos = payload.rend + 1;
 			return true;
 		}

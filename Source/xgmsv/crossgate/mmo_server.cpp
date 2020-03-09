@@ -104,6 +104,24 @@ namespace mmo_server
 
 	void init(int argc, char** argv)
 	{
+		/*
+		char* packet_de = "PBt-ztsrSCXizpHiNuKPg5AuyS6PzdstfC7blf3rb-Dbo7tf5NhhQ-+Pg4--7kE6qjGnMfl6th1N20udvQ";
+		core::byte_buffer buf_de(4096);
+		buf_de.write(packet_de, strlen(packet_de));
+		crossgate::decrypt_message(buf_de);
+		printf("string:\"%s\"\n", buf_de.data() + buf_de.rpos);
+
+		exit(0);
+		//*/
+
+		//*
+		char packet[] = R"(IP 127.0.0.1 )";
+		core::byte_buffer buf(4096);
+		buf.write(packet, sizeof(packet));
+		crossgate::encrypt_message(buf);
+		printf("string:%s\n", buf.data());
+		//*/
+
 		std::map<std::string, docopt::value> args_map = docopt::docopt(mmo_server::usage, { argv + 1, argv + argc }, true, "MMO Server 1.0");
 		if (args_map.empty())
 		{
@@ -184,11 +202,6 @@ namespace mmo_server
 		//char packet[] = "eyM3e-ijJJlKxYcGgBZ6mTVLyOrHj0jER2D05zIGSMJ-nAnIGGeYkS07zNl3FjzELZUalXxUVO3xRCNZhC2Pvv9MZXuxobNA7Gev-6awxQonbIWYB+eb";
 		//char packet[] = R"(CharList 0 jason|0\\z241400\\z1\\z15\\z0\\z0\\z0\\z15\\z0\\z0\\z100\\z0\\z12\\zjason\\z2\\z见习传教士\\z2\\z106002\\z-1| )";
 		/*
-		char packet_de[] = "FsV1lm6adLyZmHKaINgpnXWZnAmdIAg";
-		core::byte_buffer buf_de(4096);
-		buf_de.write(packet_de, sizeof(packet_de) - 1);
-		crossgate::decrypt_message(buf_de);
-		printf("string:%s\n", buf_de.data());
 
 		char packet[] = "Echo nr ";
 		core::byte_buffer buf(4096);
