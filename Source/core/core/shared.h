@@ -15,6 +15,7 @@ namespace server
 	{
 		// public
 		extern asio::io_context io_context;
+		extern std::chrono::time_point<std::chrono::steady_clock> server_time;
 		extern volatile enum class e_server_status server_status;
 
 		void main_loop();

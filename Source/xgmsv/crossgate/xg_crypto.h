@@ -9,7 +9,7 @@ namespace server
 
 		char mapping_table[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-";
 
-
+		/*
 		char char9_str[] = {
 			0x43, 0xd0, 0x84, 0x91, 0xc3, 0x24, 0xcd, 0x1c,
 			0x3a, 0x20, 0x60, 0x80, 0x50, 0x13, 0x66, 0xce,
@@ -22,7 +22,7 @@ namespace server
 			0x3d, 0xc6, 0x80, 0x61, 0x43, 0xe3, 0x4c, 0x8a,
 			0x2d, 0x62, 0xf0, 0x01, 0x01, 0x10, 0x00
 		};
-
+		*/
 
 		int weird_kernel1[] =
 		{
@@ -136,7 +136,7 @@ namespace server
 		}
 
 		// decrypt stage 4
-		uint64 remove_conditional_compression(uint8* dst, uint64 dst_size, const uint8* src, uint64 length)
+		uint64 decompress_message(uint8* dst, uint64 dst_size, const uint8* src, uint64 length)
 		{
 			int read_counter = 0;
 			const uint8* read_buffer = 0;
@@ -171,6 +171,21 @@ namespace server
 				return hi + lo;
 			};
 
+			/*
+			std::vector<uint16> buffer_9bits(4096);
+			uint64 buffer_9bits_index = 0;
+			{
+				read_counter = 0;
+				read_buffer = src;
+				read_length = length; // message_size - 1
+
+				for (int index = 0; index < length; index++)
+				{
+					uint16 bits_read = read_9bits(9);
+					buffer_9bits[index] = bits_read;
+				}
+			}
+			*/
 
 			//input variables
 			read_counter = 0;
@@ -179,7 +194,7 @@ namespace server
 
 			uint8 dictionary_indices[512];
 			dictionary_entry dictionary_entries[256];
-			uint8 dictionary_size = 0;
+			uint16 dictionary_size = 0;
 
 			memset(dictionary_indices, 0, 512);
 			memset(dictionary_entries, 0, sizeof(dictionary_entry) * 256);
@@ -198,7 +213,7 @@ namespace server
 
 			for (int index = 0; index < length; index++)
 			{
-				int bits_read = read_9bits(9);
+				int bits_read = read_9bits(9); // buffer_9bits[buffer_9bits_index++]; //
 				int last_char_or_something = bits_read;
 
 				if (bits_read == 0x100)
@@ -226,7 +241,8 @@ namespace server
 				{
 					while ((unsigned int)next_char9 < 512)
 					{
-						const dictionary_entry& curr_entry = dictionary_entries[next_char9 - 0x101];
+						uint16 entry_index = next_char9 - 0x101;
+						const dictionary_entry& curr_entry = dictionary_entries[entry_index];
 
 						char_stack[char_stack_size++] = curr_entry.char9_right;
 						next_char9 = curr_entry.char9_left;
@@ -289,14 +305,25 @@ namespace server
 			return bytes_decoded;
 		}
 
-		void decrypt_message(core::byte_buffer& payload)
+		bool decrypt_message(core::byte_buffer& payload)
 		{
 			uint8* buffer = payload.data() + payload.rpos;
 
 			uint64 payload_size = payload.rend - payload.rpos;
 
+			if (payload_size == 1)
+			{
+				printf("catch bug\n");
+			}
+
 			// 6 bit to 8 bit string
 			uint64 decrypted_size = util_64to256(buffer, buffer, mapping_table, payload_size);
+
+			if (!decrypted_size)
+			{
+				printf("bad message\n");
+				return false;
+			}
 
 			decrypted_size--; // -1 for checksum
 
@@ -306,7 +333,7 @@ namespace server
 			uint8 workbuf[4096];
 			if (buffer[0] % 2)
 			{
-				decrypted_size = remove_conditional_compression(workbuf, sizeof(workbuf), buffer + 1, decrypted_size);
+				decrypted_size = decompress_message(workbuf, sizeof(workbuf), buffer + 1, decrypted_size);
 				memcpy(buffer, workbuf, decrypted_size);
 			}
 
@@ -314,9 +341,10 @@ namespace server
 
 			payload.rpos++;
 			payload.rend += decrypted_size - payload_size;
+			return true;
 		}
 
-		uint64 apply_conditional_compression(uint8* dst, uint64 dst_size, const uint8* src, uint64 length)
+		uint64 compress_message(uint8* dst, uint64 dst_size, const uint8* src, uint64 length)
 		{
 			int		write_counter = 0;
 			uint8* write_buffer = 0;
@@ -361,9 +389,9 @@ namespace server
 				return result;
 			};
 
-			unsigned char dictionary_indices[512];
+			uint8 dictionary_indices[512];
 			dictionary_entry dictionary_entries[256];
-			unsigned char dictionary_size = 0;
+			uint16 dictionary_size = 0;
 
 			memset(dictionary_indices, 0, 512);
 			memset(dictionary_entries, 0, sizeof(dictionary_entry) * 256);
@@ -521,7 +549,7 @@ namespace server
 				//uint64 result = out_int;
 			}
 
-			return 0;
+			return length + 1;
 		}
 
 		int util_256to64(uint8* dst, uint8* src, char* table, uint64 length)
@@ -550,31 +578,30 @@ namespace server
 		}
 
 
-		void encrypt_message(core::byte_buffer& payload)
+		bool encrypt_message(core::byte_buffer& payload)
 		{
 			uint8* buffer = payload.data() + payload.rpos;
 			const uint64 payload_size = payload.rend - payload.rpos;
 
+			if (payload.free_space() < payload_size)
+			{
+				printf("encrypt_message: not enough space\n");
+				return false;
+			}
+
 			uint64 encrypted_size = payload_size + 1; // packet_length padding
+
 			char header = (char)encrypted_size;
 
 			if (encrypted_size >= 100)
 			{
 				if (encrypted_size % 2 == 0)
 				{
-					header = encrypted_size;
+					header = encrypted_size + 1;
 				}
 
-				/*
-				*(_BYTE*)message_work_buffer2 = checksum;
-				message_length = odd_length_encrypt(
-					(char*)message_work_buffer2 + 1,
-					3 * buffer_size - 1,
-					(unsigned __int8*)message,
-					strlen(message));
-					*/
 				uint8 workbuf[4096];
-				encrypted_size = apply_conditional_compression(workbuf + 1, sizeof(workbuf) - 1, buffer, encrypted_size);
+				encrypted_size = compress_message(workbuf, sizeof(workbuf), buffer, payload_size);
 
 				/*
 char char9_str[] = {
@@ -591,7 +618,7 @@ char char9_str[] = {
 };
 */
 				//workbuf[0] = header;
-				memcpy(buffer, workbuf, encrypted_size + 1);
+				memmove(buffer + 1, workbuf, encrypted_size);
 			}
 			else
 			{
@@ -609,16 +636,17 @@ char char9_str[] = {
 			encrypted_size++; // null terminator;
 
 			uint8 workbuf[4096];
+			memset(workbuf, 0, 4096);
 			uint8 checksum = apply_conditional_bit_reverse(buffer, buffer, encrypted_size);
-			apply_salt_and_add_checksum(workbuf, buffer, encrypted_size, checksum);
+			encrypted_size = apply_salt_and_add_checksum(workbuf, buffer, encrypted_size, checksum);
 
-			encrypted_size++; // add checksum;
 			encrypted_size = util_256to64(buffer, workbuf, mapping_table, encrypted_size);
-			buffer[encrypted_size++] = '\n';
-			buffer[encrypted_size]   = '\0';
+			buffer[encrypted_size] = '\n';
+			//buffer[encrypted_size]   = '\0';
 
 			payload.rend += encrypted_size - payload_size;
-			payload.wpos = payload.rend;
+			payload.wpos = payload.rend + 1;
+			return true;
 		}
 	}
 }

@@ -16,6 +16,7 @@ namespace server
 	{
 		// public
 		asio::io_context io_context;
+		std::chrono::time_point<std::chrono::steady_clock> server_time;
 		volatile e_server_status server_status;
 
 

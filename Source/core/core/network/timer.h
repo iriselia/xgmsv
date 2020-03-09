@@ -2,6 +2,8 @@
 
 #include "asio/steady_timer.hpp"
 
+#include "core/shared.h"
+
 namespace server
 {
 	namespace core
@@ -50,16 +52,23 @@ namespace server
 			}
 		};
 
+
+		enum class signal_code
+		{
+			no_error = 0,
+			shutdown = 1
+		};
+
 		struct async_signal_frame
 		{
 			asio::steady_timer timer;
-			asio::error_code error_code;
+			signal_code val;
 
-			async_signal_frame() : timer(io_context) {}
+			async_signal_frame() : timer(io_context), val(signal_code::no_error) {}
 
 			~async_signal_frame()
 			{
-				timer.cancel();
+				fire(signal_code::shutdown);
 			}
 
 			bool await_ready()
@@ -70,24 +79,38 @@ namespace server
 			void await_suspend(std::experimental::coroutine_handle<> coro)
 			{
 				timer.expires_at(std::chrono::steady_clock::time_point::max());
-				timer.async_wait([this, coro](auto error_code) { this->error_code = error_code; coro.resume(); });
+				timer.async_wait([this, coro](auto error_code)
+				{
+					//this->error_code = error_code;
+					coro.resume();
+				});
 			}
 
 			void await_resume()
 			{
-				switch (error_code.value())
+				switch (val)
 				{
-				case 995:
-					// signal fired by calling timer.cancel_one()
+				case signal_code::no_error:
 					break;
+				//case 995:
+				//	// signal fired by calling timer.cancel_one() or timer.cancel()
+				//	break;
 				default:
-					throw asio::system_error(error_code);
+					break;
+					//throw val;
 				}
 			}
 
-			void fire()
+			void fire(signal_code signal = signal_code::no_error)
 			{
+				val = signal;
 				timer.cancel_one();
+			}
+
+			void shutdown()
+			{
+				val = signal_code::shutdown;
+				timer.cancel();
 			}
 		};
 

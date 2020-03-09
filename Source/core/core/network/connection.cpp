@@ -3,7 +3,6 @@
 #include "core/shared.h"
 
 #include "core/network/connection.h"
-#include "core/network/xg_session.h"
 #include "core/network/timer.h"
 
 namespace server
@@ -15,25 +14,27 @@ namespace server
 			address(new_socket.remote_endpoint().address()),
 			port(new_socket.remote_endpoint().port()),
 			marked_for_delete(false),
-			parent(nullptr),
+			//parent(nullptr),
 			socket(std::move(new_socket)),
 			rbuffer(4096),
-			wbuffer(4096),
-			rqueue(this),
-			wqueue(this)
+			wbuffer(4096)
 		{
 		}
 
-		void tcp_connection::shutdown_and_close()
+		void tcp_connection::mark_for_delete()
 		{
 			asio::error_code error_code;
 			socket.shutdown(asio::ip::tcp::socket::shutdown_both, error_code);
 
+			/*
 			if (error_code)
-				printf("network: tcp_connection::close: %s errored when shutting down socket: %i (%s)", address.to_string().c_str(),
+				printf("network: tcp_connection::close: %s errored when shutting down socket: %i (%s)\n", address.to_string().c_str(),
 					error_code.value(), error_code.message().c_str());
-
+			*/
+			
 			socket.close();
+
+			wsignal->fire(signal_code::shutdown);
 
 			marked_for_delete = true;
 		}
@@ -55,18 +56,22 @@ namespace server
 						uint32 id = connection->id;
 						if (connection->marked_for_delete)
 						{
-
-							/*
-							if (connection->parent)
+							if (!connection->wqueue && !connection->rqueue)
 							{
-								connection->parent->remove_connection(connection);
+								delete connection;
+								connection = nullptr;
+								this->conneciton_count--;
+								connections_purged++;
 							}
 
-							delete connection;
-							connection = nullptr;
-							this->conneciton_count--;
-							connections_purged++;
-							*/
+
+							//*
+							//if (connection->parent)
+							//{
+							//	connection->parent->remove_connection(connection);
+							//}
+
+							//*/
 						}
 					}
 				}
