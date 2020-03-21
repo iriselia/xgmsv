@@ -11,5 +11,6 @@ create_project(CONSOLE DEFINE INCLUDE LINK)
 
 if(MSVC)
 	add_definitions(/await)
-	add_definitions(/std:c++17)
+	add_definitions(/experimental:module)
+	add_definitions(/std:c++latest)
 endif()

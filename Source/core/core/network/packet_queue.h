@@ -107,20 +107,20 @@ namespace server
 
 			void begin_write()
 			{
-				write_state = state.fetch_add(0x1 << packet_queue_state_bit::write_busy, std::memory_order_acq_rel);
+				write_state = state.fetch_add(0x1 << packet_queue_state_bit::write_busy);
 				assert((write_state & (0x1 << packet_queue_state_bit::write_busy)) == 0);
-				state.fetch_or(0x1 << packet_queue_state_bit::dirty_flag, std::memory_order_acq_rel);
+				state.fetch_or(0x1 << packet_queue_state_bit::dirty_flag);
 			}
 
 			void end_write()
 			{
-				write_state = state.fetch_sub(0x1 << packet_queue_state_bit::write_busy, std::memory_order_acq_rel);
+				write_state = state.fetch_sub(0x1 << packet_queue_state_bit::write_busy);
 				assert((write_state & (0x1 << packet_queue_state_bit::write_busy)) != 0);
 			}
 
 			bool begin_read()
 			{
-				if (state.load(std::memory_order_acquire) & (0x1 << packet_queue_state_bit::dirty_flag))
+				if (state.load() & (0x1 << packet_queue_state_bit::dirty_flag))
 				{
 
 					uint32 write_state = read_state ^ (0x1 << packet_queue_state_bit::active_frame);
@@ -129,7 +129,7 @@ namespace server
 					do
 					{
 						test_state = read_state | (0x1 << packet_queue_state_bit::dirty_flag);
-					} while (!state.compare_exchange_weak(test_state, write_state, std::memory_order_acq_rel));
+					} while (!state.compare_exchange_weak(test_state, write_state));
 
 					return true;
 				}

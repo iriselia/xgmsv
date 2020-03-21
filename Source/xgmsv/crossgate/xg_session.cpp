@@ -163,8 +163,7 @@ namespace server
 
 		void xg_session::handle_char_login(xg_packet* packet)
 		{
-			send_raw(R"(EJQ35XO0sXyvF5j6Y2HPBZM)");
-			//send_msg(R"(PRV 3|5|100|0 )");
+			send_msg(R"(PRV 3|5|100|0 )");
 
 			send_msg(R"(CharLogin successful  )");
 			
