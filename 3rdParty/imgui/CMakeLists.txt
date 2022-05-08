@@ -1,9 +1,5 @@
-SET( DEFINE
-)
-SET( INCLUDE
-glfw
-)
-SET( LINK
-glfw
-)
-create_project(STATIC DEFINE INCLUDE LINK)
+cmaid_project(
+	CONFIGURATION STATIC
+	DEFINE glfw
+	INCLUDE glfw
+	LINK)
