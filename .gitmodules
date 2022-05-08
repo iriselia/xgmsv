@@ -1,0 +1,3 @@
+[submodule "cmaid"]
+	path = cmaid
+	url = https://github.com/jpark730/cmaid
