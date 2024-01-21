@@ -1,11 +1,11 @@
-namespace mmo_server
+namespace xgmsv
 {
 	const char* usage = 1 + R"(
 MMO Server.
 
     Usage:
-      mmo_server [options]
-      mmo_server -h | --help | --version
+      xgmsv [options]
+      xgmsv -h | --help | --version
 
     Options:
       -hl, --headless                           Start the server without GUI.
@@ -19,8 +19,10 @@ MMO Server.
 //*
 int main(int argc, char** argv)
 {
-	mmo_server::init(argc, argv);
-	mmo_server::run();
-	mmo_server::stop();
+	xgmsv::init(argc, argv);
+	xgmsv::run();
+	xgmsv::stop();
 }
 //*/
+
+

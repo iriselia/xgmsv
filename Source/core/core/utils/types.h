@@ -19,5 +19,7 @@ typedef wchar_t					WIDECHAR;	// A wide character        - In-memory only.  ?-bi
 typedef std::uint8_t			CHAR8;		// An 8-bit character type - In-memory only.  8-bit representation.  Should really be char8_t but making this the generic option is easier for compilers which don't fully support C++11 yet (i.e. MSVC).
 typedef std::uint16_t			CHAR16;		// A 16-bit character type - In-memory only.  16-bit representation.  Should really be char16_t but making this the generic option is easier for compilers which don't fully support C++11 yet (i.e. MSVC).
 typedef std::uint32_t			CHAR32;		// A 32-bit character type - In-memory only.  32-bit representation.  Should really be char32_t but making this the generic option is easier for compilers which don't fully support C++11 yet (i.e. MSVC).
+#ifndef _TCHAR_DEFINED
 typedef WIDECHAR				TCHAR;		// A switchable character  - In-memory only.  Either ANSICHAR or WIDECHAR, depending on a licensee's requirements.
-
+#endif
+#define _TCHAR_DEFINED // work around 1>C:\Program Files (x86)\Windows Kits\10\Include\10.0.22000.0\um\winnt.h(603,14): error C2371: 'TCHAR': redefinition; different basic types

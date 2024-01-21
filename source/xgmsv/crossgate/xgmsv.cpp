@@ -8,10 +8,12 @@
 
 #include "crossgate/xg_session.h"
 
-#include "mmo_server.h"
+#include "xgmsv.h"
 
 #include "crossgate/xg_crypto.h"
 #include "crossgate/xg_packet.h"
+
+//#include "gmsv/nrproto_serv.h"
 
 #pragma warning(push)
 #pragma warning(disable : 26444)
@@ -56,6 +58,7 @@ BOOL GBKToUtf8(char* str, int size)
 	return TRUE;
 }
 
+/*
 BOOL utf8ToBig5(char* str, int size)
 {
 	char temp[2048];
@@ -94,10 +97,10 @@ BOOL big5ToUtf8(char* str, int size)
 
 	return TRUE;
 }
+*/
 
-namespace mmo_server
+namespace xgmsv
 {
-	using namespace server;
 	extern const char* usage;
 
 	volatile int stop_signal = 0;
@@ -122,7 +125,7 @@ namespace mmo_server
 		printf("string:%s\n", buf.data());
 		//*/
 
-		std::map<std::string, docopt::value> args_map = docopt::docopt(mmo_server::usage, { argv + 1, argv + argc }, true, "MMO Server 1.0");
+		std::map<std::string, docopt::value> args_map = docopt::docopt(xgmsv::usage, { argv + 1, argv + argc }, true, "MMO Server 1.0");
 		if (args_map.empty())
 		{
 			assert(false);
@@ -140,7 +143,7 @@ namespace mmo_server
 
 		auto accept_handler = [](core::tcp_connection* new_connection)
 		{
-			printf("connection %d accepted\n", new_connection->id);
+			//printf("connection %d accepted\n", new_connection->id);
 			auto session = crossgate::xg_session_pool.spawn_session(new_connection, crossgate::connection_type::CONNECTION_TYPE_GAME);
 
 			if (!session)
@@ -149,14 +152,15 @@ namespace mmo_server
 			}
 		};
 
-		auto receive_handler = [](core::byte_buffer& payload) -> bool
+		auto receive_handler = [](uint8* payload/*core::byte_buffer& payload*/) -> bool
 		{
-			return crossgate::decrypt_message(payload);
+			//return crossgate::decrypt_message( payload );
+			return true; // crossgate::decrypt_message( payload );
 		};
 
-		auto send_handler = [](core::byte_buffer& payload) -> bool
+		auto send_handler = [](uint8* payload/*core::byte_buffer& payload*/) -> bool
 		{
-			return crossgate::encrypt_message(payload);
+			return true; // crossgate::encrypt_message( payload );
 		};
 
 		unsigned short port = 9030;
@@ -179,6 +183,9 @@ namespace mmo_server
 			core::io_context.run();
 		});
 		*/
+
+		//nrproto_InitServer(lsrpcClientWriteFunc, 0x40000u);
+
 
 		core::start_network();
 
@@ -232,7 +239,7 @@ namespace mmo_server
 						while (packets.has_next())
 						{
 							core::packet* packet = packets.dequeue();
-							crossgate::xg_dispatch_packet(session, std::move(*packet));
+							crossgate::xg_recv(session, std::move(*packet));
 
 							//std::string packet_str((char*)packet->data, packet->length);
 

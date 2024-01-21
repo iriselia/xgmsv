@@ -8,80 +8,77 @@
 #include "core/utils/thread.h"
 
 
-namespace server
+namespace core
 {
-	namespace core
-	{
-		// public
-		main_thread_info main_thread;
-		std::vector<worker_thread> worker_threads;
+	// public
+	main_thread_info main_thread;
+	std::vector<worker_thread> worker_threads;
 
-		void purge_worker_threads()
+	void purge_worker_threads()
+	{
+		for (auto& worker : worker_threads)
 		{
-			for (auto& worker : worker_threads)
+			if (worker.joinable())
 			{
-				if (worker.joinable())
-				{
-					worker.join();
-				}
+				worker.join();
 			}
-			worker_threads.clear();
+		}
+		worker_threads.clear();
+	}
+
+	namespace this_thread
+	{
+		void assign_main_thread()
+		{
+			main_thread.id = std::this_thread::get_id();
+			this_thread::set_debug_name(main_thread.name.c_str());
 		}
 
-		namespace this_thread
+		std::thread::id this_thread::get_id()
 		{
-			void assign_main_thread()
+			return std::this_thread::get_id();
+		}
+
+		void set_debug_name(const std::string& new_name)
+		{
+			if (std::this_thread::get_id() == main_thread.id)
 			{
-				main_thread.id = std::this_thread::get_id();
-				this_thread::set_debug_name(main_thread.name.c_str());
-			}
-
-			std::thread::id this_thread::get_id()
-			{
-				return std::this_thread::get_id();
-			}
-
-			void set_debug_name(const std::string& new_name)
-			{
-				if (std::this_thread::get_id() == main_thread.id)
-				{
-					main_thread.name = new_name;
-					set_thread_name(new_name.c_str());
-					return;
-				}
-
-				for (auto& i : worker_threads)
-				{
-					if (std::this_thread::get_id() == i.id)
-					{
-						i.name = new_name;
-						set_thread_name(new_name.c_str());
-						return;
-					}
-				}
-
-				assert(false);
+				main_thread.name = new_name;
+				set_thread_name(new_name.c_str());
 				return;
 			}
 
-			std::string get_debug_name()
+			for (auto& i : worker_threads)
 			{
-				if (std::this_thread::get_id() == main_thread.id)
+				if (std::this_thread::get_id() == i.id)
 				{
-					return main_thread.name;
+					i.name = new_name;
+					set_thread_name(new_name.c_str());
+					return;
 				}
-
-				for (auto& i : worker_threads)
-				{
-					if (std::this_thread::get_id() == i.id)
-					{
-						return i.name;
-					}
-				}
-
-				assert(false);
-				return std::string();
 			}
+
+			assert(false);
+			return;
+		}
+
+		std::string get_debug_name()
+		{
+			if (std::this_thread::get_id() == main_thread.id)
+			{
+				return main_thread.name;
+			}
+
+			for (auto& i : worker_threads)
+			{
+				if (std::this_thread::get_id() == i.id)
+				{
+					return i.name;
+				}
+			}
+
+			assert(false);
+			return std::string();
 		}
 	}
 }

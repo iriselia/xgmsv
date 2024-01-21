@@ -1,8 +1,8 @@
 cmaid_project(
-	CONFIGURATION CONSOLE
+	CONFIGURATION STATIC
 	DEFINE
-	INCLUDE asio docopt imgui simple_web_server
-	LINK asio docopt imgui simple_web_server)
+	INCLUDE asio docopt imgui glfw
+	LINK asio docopt imgui glfw)
 
 if(MSVC)
 	add_definitions(/experimental:module)
